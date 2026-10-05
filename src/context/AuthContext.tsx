@@ -1,44 +1,55 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { AuthUser, UserRole } from '../types';
 
-export const MOCK_ACCOUNTS: Record<UserRole, AuthUser> = {
-  guest: {
-    id: 'guest',
-    name: 'Tamu Publik',
-    email: 'guest@weekendly.local',
-    role: 'guest',
-    badgeLabel: 'GUEST',
-  },
-  user: {
+interface StoredAccount extends AuthUser {
+  password: string;
+}
+
+// Predefined registered accounts in system
+export const SYSTEM_ACCOUNTS: StoredAccount[] = [
+  {
     id: 'usr-01',
     name: 'Rian Pratama',
     email: 'rian@weekendly.id',
+    password: 'user123',
     role: 'user',
-    badgeLabel: 'VERIFIED USER',
+    badgeLabel: 'TRAVELER USER',
+    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&q=80',
   },
-  merchant: {
+  {
     id: 'mch-01',
-    name: 'Kopi Senja & Space Owner',
+    name: 'Kopi Senja & Creative Space',
     email: 'partner@kopisenja.com',
+    password: 'merchant123',
     role: 'merchant',
     badgeLabel: 'MERCHANT PARTNER',
+    avatar: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&w=120&q=80',
   },
-  admin: {
+  {
     id: 'adm-01',
-    name: 'Edo (Lead Curator)',
+    name: 'Edo Kurator Utama',
     email: 'admin@weekendly.id',
+    password: 'admin123',
     role: 'admin',
     badgeLabel: 'PLATFORM ADMIN',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
   },
-};
+];
 
 interface AuthContextType {
-  currentUser: AuthUser;
-  switchRole: (role: UserRole) => void;
-  loginCustom: (name: string, role: UserRole) => void;
+  user: AuthUser | null;
+  role: UserRole;
+  isAuthenticated: boolean;
+  login: (email: string, password: string) => { success: boolean; message?: string };
+  register: (
+    name: string,
+    email: string,
+    password: string,
+    role: 'user' | 'merchant'
+  ) => { success: boolean; message?: string };
   logout: () => void;
   wishlist: string[];
-  toggleWishlist: (placeId: string) => boolean; // returns true if added, false if removed
+  toggleWishlist: (placeId: string) => boolean;
   isWishlisted: (placeId: string) => boolean;
   canSaveWishlist: boolean;
   canAddReview: boolean;
@@ -48,37 +59,63 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const STORAGE_KEY_USER = 'weekendly_auth_user_v1';
-const STORAGE_KEY_WISHLIST = 'weekendly_wishlist_v1';
+const STORAGE_SESSION_KEY = 'weekendly_logged_user_v2';
+const STORAGE_REGISTERED_USERS = 'weekendly_registered_users_v2';
+const STORAGE_KEY_WISHLIST = 'weekendly_wishlist_v2';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<AuthUser>(() => {
+  // Registered accounts stored in browser
+  const [registeredAccounts, setRegisteredAccounts] = useState<StoredAccount[]>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY_USER);
-      if (saved) return JSON.parse(saved);
+      const raw = localStorage.getItem(STORAGE_REGISTERED_USERS);
+      if (raw) return JSON.parse(raw);
     } catch (e) {
       console.error(e);
     }
-    return MOCK_ACCOUNTS.guest;
+    return SYSTEM_ACCOUNTS;
   });
 
-  const [wishlist, setWishlist] = useState<string[]>(() => {
+  // Current session (defaults to NULL / Guest!)
+  const [user, setUser] = useState<AuthUser | null>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY_WISHLIST);
-      if (saved) return JSON.parse(saved);
+      const raw = localStorage.getItem(STORAGE_SESSION_KEY);
+      if (raw) return JSON.parse(raw);
     } catch (e) {
       console.error(e);
     }
-    return ['bdg-1', 'bdg-2']; // default initial bookmarks
+    return null; // By default: GUEST!
+  });
+
+  // Wishlist
+  const [wishlist, setWishlist] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_WISHLIST);
+      if (raw) return JSON.parse(raw);
+    } catch (e) {
+      console.error(e);
+    }
+    return [];
   });
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(currentUser));
+      localStorage.setItem(STORAGE_REGISTERED_USERS, JSON.stringify(registeredAccounts));
     } catch (e) {
       console.error(e);
     }
-  }, [currentUser]);
+  }, [registeredAccounts]);
+
+  useEffect(() => {
+    try {
+      if (user) {
+        localStorage.setItem(STORAGE_SESSION_KEY, JSON.stringify(user));
+      } else {
+        localStorage.removeItem(STORAGE_SESSION_KEY);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, [user]);
 
   useEffect(() => {
     try {
@@ -88,28 +125,74 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [wishlist]);
 
-  const switchRole = (role: UserRole) => {
-    setCurrentUser(MOCK_ACCOUNTS[role]);
+  const login = (email: string, password: string): { success: boolean; message?: string } => {
+    const cleanEmail = email.trim().toLowerCase();
+    const found = registeredAccounts.find(
+      (acc) => acc.email.toLowerCase() === cleanEmail && acc.password === password
+    );
+
+    if (!found) {
+      return {
+        success: false,
+        message: 'Email atau password salah. Silakan periksa kembali kredensial Anda.',
+      };
+    }
+
+    const authUser: AuthUser = {
+      id: found.id,
+      name: found.name,
+      email: found.email,
+      role: found.role,
+      badgeLabel: found.badgeLabel,
+      avatar: found.avatar,
+    };
+
+    setUser(authUser);
+    return { success: true };
   };
 
-  const loginCustom = (name: string, role: UserRole) => {
-    setCurrentUser({
+  const register = (
+    name: string,
+    email: string,
+    password: string,
+    role: 'user' | 'merchant'
+  ): { success: boolean; message?: string } => {
+    const cleanEmail = email.trim().toLowerCase();
+    const exists = registeredAccounts.some((acc) => acc.email.toLowerCase() === cleanEmail);
+
+    if (exists) {
+      return { success: false, message: 'Email sudah terdaftar. Silakan gunakan email lain atau login.' };
+    }
+
+    const newAccount: StoredAccount = {
       id: `usr-${Date.now()}`,
-      name: name || 'Pengguna Baru',
-      email: `${(name || 'user').toLowerCase().replace(/\s+/g, '')}@weekendly.id`,
+      name: name.trim(),
+      email: cleanEmail,
+      password,
       role,
-      badgeLabel: role.toUpperCase(),
-    });
+      badgeLabel: role === 'merchant' ? 'MERCHANT PARTNER' : 'TRAVELER USER',
+    };
+
+    setRegisteredAccounts((prev) => [...prev, newAccount]);
+
+    const authUser: AuthUser = {
+      id: newAccount.id,
+      name: newAccount.name,
+      email: newAccount.email,
+      role: newAccount.role,
+      badgeLabel: newAccount.badgeLabel,
+    };
+
+    setUser(authUser);
+    return { success: true };
   };
 
   const logout = () => {
-    setCurrentUser(MOCK_ACCOUNTS.guest);
+    setUser(null);
   };
 
   const toggleWishlist = (placeId: string): boolean => {
-    if (currentUser.role === 'guest') {
-      return false;
-    }
+    if (!user) return false;
     const exists = wishlist.includes(placeId);
     if (exists) {
       setWishlist((prev) => prev.filter((id) => id !== placeId));
@@ -122,17 +205,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const isWishlisted = (placeId: string) => wishlist.includes(placeId);
 
-  const canSaveWishlist = currentUser.role !== 'guest';
-  const canAddReview = currentUser.role !== 'guest';
-  const canSubmitVenue = currentUser.role === 'merchant' || currentUser.role === 'admin';
-  const canModerate = currentUser.role === 'admin';
+  const role: UserRole = user ? user.role : 'guest';
+  const isAuthenticated = user !== null;
+
+  const canSaveWishlist = isAuthenticated;
+  const canAddReview = isAuthenticated;
+  const canSubmitVenue = isAuthenticated && (role === 'merchant' || role === 'admin');
+  const canModerate = isAuthenticated && role === 'admin';
 
   return (
     <AuthContext.Provider
       value={{
-        currentUser,
-        switchRole,
-        loginCustom,
+        user,
+        role,
+        isAuthenticated,
+        login,
+        register,
         logout,
         wishlist,
         toggleWishlist,

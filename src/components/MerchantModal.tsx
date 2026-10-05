@@ -17,7 +17,7 @@ export const MerchantModal: React.FC<MerchantModalProps> = ({
   onClose,
   onVenueCreated,
 }) => {
-  const { currentUser } = useAuth();
+  const { user } = useAuth();
 
   const [name, setName] = useState('');
   const [category, setCategory] = useState('Cafe & Roastery');
@@ -29,7 +29,7 @@ export const MerchantModal: React.FC<MerchantModalProps> = ({
     'https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=600&q=80'
   );
 
-  if (!isOpen) return null;
+  if (!isOpen || !user) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,12 +55,12 @@ export const MerchantModal: React.FC<MerchantModalProps> = ({
         lng: city.lng + lngOffset,
         weatherFitBadge: type === 'INDOOR' ? 'Aman Hujan' : 'Cocok Cerah',
       },
-      currentUser.id,
-      currentUser.name
+      user.id,
+      user.name
     );
 
     alert(
-      `✅ Tempat "${name}" berhasil didaftarkan oleh ${currentUser.name}!\nStatus saat ini: PENDING (Menunggu kurasi dari Admin/Kurator).`
+      `✅ Tempat "${name}" berhasil didaftarkan oleh ${user.name}!\nStatus saat ini: PENDING (Menunggu kurasi dari Admin/Kurator).`
     );
     onVenueCreated(newVenue);
     onClose();

@@ -17,11 +17,11 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
   onClose,
   onReviewAdded,
 }) => {
-  const { currentUser } = useAuth();
+  const { user } = useAuth();
   const [rating, setRating] = useState<number>(5);
   const [comment, setComment] = useState<string>('');
 
-  if (!isOpen || !place) return null;
+  if (!isOpen || !place || !user) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,8 +32,8 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
 
     const newRev = addReviewToPlace(place.id, {
       placeId: place.id,
-      authorName: currentUser.name,
-      authorRole: currentUser.role,
+      authorName: user.name,
+      authorRole: user.role,
       rating,
       comment,
     });
@@ -108,7 +108,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
           </div>
 
           <div className="bg-stone-100 border-2 border-black p-2 rounded text-[11px] font-mono text-stone-600">
-            Mengulas sebagai: <b>{currentUser.name}</b> ({currentUser.role.toUpperCase()})
+            Mengulas sebagai: <b>{user.name}</b> ({user.role.toUpperCase()})
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-2 border-t-2 border-stone-200">
