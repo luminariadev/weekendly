@@ -17,9 +17,13 @@ import {
   MessageSquare,
   PlusCircle,
   ShieldAlert,
-  Star,
   Tag,
   AlertTriangle,
+  LogIn,
+  LogOut,
+  UserPlus,
+  Clock,
+  Eye,
 } from 'lucide-react';
 import type { CityLocation, SmartOutingResult, PlacePOI } from './types';
 import {
@@ -28,15 +32,19 @@ import {
   searchCity,
 } from './services/api';
 import { useAuth } from './context/AuthContext';
-import { RoleSwitcher } from './components/RoleSwitcher';
 import { MapComponent } from './components/MapComponent';
 import { MerchantModal } from './components/MerchantModal';
 import { AdminDeskModal } from './components/AdminDeskModal';
 import { ReviewModal } from './components/ReviewModal';
+import { AuthModal } from './components/AuthModal';
+import { PlaceDetailModal } from './components/PlaceDetailModal';
 
 export function App() {
   const {
-    switchRole,
+    user,
+    role,
+    isAuthenticated,
+    logout,
     wishlist,
     toggleWishlist,
     isWishlisted,
@@ -61,10 +69,12 @@ export function App() {
   const [copied, setCopied] = useState<boolean>(false);
 
   // Modals state
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
   const [isMerchantModalOpen, setIsMerchantModalOpen] = useState<boolean>(false);
   const [isAdminModalOpen, setIsAdminModalOpen] = useState<boolean>(false);
   const [reviewPlace, setReviewPlace] = useState<PlacePOI | null>(null);
-  const [guestPromptModal, setGuestPromptModal] = useState<boolean>(false);
+  const [detailPlace, setDetailPlace] = useState<PlacePOI | null>(null);
 
   // Load recommendations
   const loadData = async () => {
@@ -133,11 +143,11 @@ export function App() {
   // Share
   const handleShare = () => {
     if (!data) return;
-    const shareText = `⚡ WEEKENDLY [ANTI AI-SLOP] - Rencana Akhir Pekan di ${data.city.name}
-🗓️ SABTU: ${data.weather.saturday.weatherDescription} (${data.weather.saturday.tempMax}°C, Hujan ${data.weather.saturday.precipitationProbability}%)
-🗓️ MINGGU: ${data.weather.sunday.weatherDescription} (${data.weather.sunday.tempMax}°C, Hujan ${data.weather.sunday.precipitationProbability}%)
+    const shareText = `⚡ WEEKENDLY [Anti AI-Slop] - Agenda Liburan ${data.city.name}
+🗓️ SABTU: ${data.weather.saturday.weatherDescription} (${data.weather.saturday.tempMax}°C, Peluang Hujan ${data.weather.saturday.precipitationProbability}%)
+🗓️ MINGGU: ${data.weather.sunday.weatherDescription} (${data.weather.sunday.tempMax}°C, Peluang Hujan ${data.weather.sunday.precipitationProbability}%)
 💡 KEPUTUSAN: ${data.weather.summary}
-📍 SPOT UNGGULAN: ${data.places.slice(0, 3).map((p) => p.name).join(' | ')}`;
+📍 TOP GOOGLE MAPS SPOTS: ${data.places.slice(0, 3).map((p) => p.name).join(' | ')}`;
 
     if (navigator.clipboard) {
       navigator.clipboard.writeText(shareText);
@@ -146,21 +156,23 @@ export function App() {
     }
   };
 
-  // Handle Wishlist Toggle with RBAC Guard
+  // Handle Wishlist Toggle with strict RBAC Guard
   const handleWishlistClick = (placeId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!canSaveWishlist) {
-      setGuestPromptModal(true);
+      setAuthModalMode('login');
+      setIsAuthModalOpen(true);
       return;
     }
     toggleWishlist(placeId);
   };
 
-  // Handle Review Button with RBAC Guard
+  // Handle Review Button with strict RBAC Guard
   const handleReviewClick = (place: PlacePOI, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!canAddReview) {
-      setGuestPromptModal(true);
+      setAuthModalMode('login');
+      setIsAuthModalOpen(true);
       return;
     }
     setReviewPlace(place);
@@ -179,14 +191,12 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-[#FBF9F1] text-black flex flex-col font-sans selection:bg-[#FFE600] selection:text-black">
-      {/* 1. Neubrutalist RBAC Controller Bar */}
-      <RoleSwitcher />
-
-      {/* 2. Top Navigation Bar */}
+      {/* 1. Neubrutalist Navigation Bar with Real Auth Status */}
       <header className="sticky top-0 z-40 bg-white border-b-[3px] border-black">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+          {/* Logo */}
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 bg-[#FFE600] border-[3px] border-black rounded-lg flex items-center justify-center shadow-[3px_3px_0px_0px_#000]">
+            <div className="w-11 h-11 bg-[#FFE600] border-[3px] border-black rounded-xl flex items-center justify-center shadow-[3px_3px_0px_0px_#000]">
               <Compass className="w-6 h-6 stroke-[2.5]" />
             </div>
             <div>
@@ -199,13 +209,14 @@ export function App() {
                 </span>
               </div>
               <p className="text-[11px] font-mono font-bold text-stone-600 hidden sm:block">
-                Open-Meteo &bull; OpenStreetMap &bull; RBAC Platform
+                Open-Meteo &bull; Google Maps Verified &bull; Strict RBAC
               </p>
             </div>
           </div>
 
+          {/* Right Controls: Role Actions & Real Auth */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Merchant Venue Submission Button */}
+            {/* Merchant Venue Submission Button (Strict: Only for merchant or admin) */}
             {canSubmitVenue && (
               <button
                 onClick={() => setIsMerchantModalOpen(true)}
@@ -216,7 +227,7 @@ export function App() {
               </button>
             )}
 
-            {/* Admin Curator Desk Button */}
+            {/* Admin Curator Desk Button (Strict: Only for admin) */}
             {canModerate && (
               <button
                 onClick={() => setIsAdminModalOpen(true)}
@@ -236,30 +247,109 @@ export function App() {
               <span className="hidden sm:inline">Lokasi</span>
             </button>
 
-            {/* Share Plan Button */}
+            {/* Share Plan */}
             <button
               onClick={handleShare}
-              className="bg-[#A3E635] hover:bg-lime-300 border-[3px] border-black px-4 py-1.5 rounded-lg font-mono font-black text-xs uppercase shadow-[3px_3px_0px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] flex items-center gap-1.5"
+              className="bg-[#A3E635] hover:bg-lime-300 border-2 border-black px-3 py-1.5 rounded-lg font-mono font-black text-xs uppercase shadow-[3px_3px_0px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] flex items-center gap-1.5"
             >
               {copied ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}
-              <span>{copied ? 'TERSALIN!' : 'BAGIKAN'}</span>
+              <span className="hidden sm:inline">{copied ? 'TERSALIN!' : 'BAGIKAN'}</span>
             </button>
+
+            {/* Authentication Section (Strict Login / Register / User Pill) */}
+            {isAuthenticated && user ? (
+              <div className="flex items-center gap-2 pl-2 border-l-2 border-black">
+                <div className="bg-stone-100 border-2 border-black px-2.5 py-1 rounded-lg flex items-center gap-2 shadow-[2px_2px_0px_0px_#000]">
+                  <span
+                    className={`font-mono text-[10px] font-black px-1.5 py-0.5 rounded border border-black uppercase ${
+                      role === 'admin'
+                        ? 'bg-[#FF6B6B] text-black'
+                        : role === 'merchant'
+                        ? 'bg-[#FFDE59] text-black'
+                        : 'bg-[#38BDF8] text-black'
+                    }`}
+                  >
+                    {role.toUpperCase()}
+                  </span>
+                  <span className="font-mono font-black text-xs text-black hidden sm:inline">
+                    {user.name.split(' ')[0]}
+                  </span>
+                </div>
+                <button
+                  onClick={() => {
+                    if (confirm('Apakah Anda ingin keluar dari akun?')) {
+                      logout();
+                    }
+                  }}
+                  title="Keluar dari akun"
+                  className="bg-white hover:bg-stone-100 border-2 border-black p-1.5 rounded-lg shadow-[2px_2px_0px_0px_#000] active:translate-x-[1px] active:translate-y-[1px]"
+                >
+                  <LogOut className="w-4 h-4 text-rose-600" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 pl-2 border-l-2 border-black">
+                <button
+                  onClick={() => {
+                    setAuthModalMode('login');
+                    setIsAuthModalOpen(true);
+                  }}
+                  className="bg-white hover:bg-stone-100 border-2 border-black px-3 py-1.5 rounded-lg font-mono font-black text-xs uppercase shadow-[2px_2px_0px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] flex items-center gap-1"
+                >
+                  <LogIn className="w-3.5 h-3.5" />
+                  <span>Masuk</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setAuthModalMode('register');
+                    setIsAuthModalOpen(true);
+                  }}
+                  className="bg-[#38BDF8] hover:bg-sky-300 border-2 border-black px-3 py-1.5 rounded-lg font-mono font-black text-xs uppercase shadow-[2px_2px_0px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] hidden sm:flex items-center gap-1"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>Daftar</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </header>
 
-      {/* 3. Main Dashboard */}
+      {/* Guest Notice Banner if Not Logged In */}
+      {!isAuthenticated && (
+        <div className="bg-[#FFE600] border-b-2 border-black px-4 py-2 font-mono text-xs text-black">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+            <span className="flex items-center gap-2 font-bold">
+              <span className="bg-black text-white px-2 py-0.5 rounded text-[10px] font-black uppercase">
+                STATUS: GUEST
+              </span>
+              Anda sedang menjelajah sebagai Tamu Publik. Masuk untuk menyimpan agenda atau mendaftarkan tempat usaha.
+            </span>
+            <button
+              onClick={() => {
+                setAuthModalMode('login');
+                setIsAuthModalOpen(true);
+              }}
+              className="underline font-black hover:text-stone-700 text-xs shrink-0"
+            >
+              Masuk / Coba Akun Demo &rarr;
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 2. Main Content Dashboard */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* Hero Banner with Neubrutalist Aesthetic */}
+        {/* Hero Section */}
         <div className="bg-white border-[4px] border-black rounded-2xl p-6 sm:p-8 shadow-[8px_8px_0px_0px_#000] relative overflow-hidden">
           <div className="absolute top-0 right-0 bg-[#FFE600] border-b-2 border-l-2 border-black px-4 py-1 font-mono font-black text-xs uppercase tracking-wider">
-            PUBLIC-APIS INTEGRATION #01
+            GOOGLE MAPS VERIFIED DATA
           </div>
 
           <div className="max-w-3xl space-y-3">
             <div className="inline-flex items-center gap-2 bg-black text-[#FFE600] border-2 border-black px-3 py-1 rounded font-mono font-black text-xs uppercase shadow-[2px_2px_0px_0px_#FFE600]">
               <Sparkles className="w-3.5 h-3.5 text-[#FFE600]" />
-              Smart Weather &times; OpenStreetMap Mashup
+              Smart Weather Forecast &times; Real Landmarks Mashup
             </div>
 
             <h1 className="text-3xl sm:text-5xl font-black uppercase tracking-tight leading-[1.05] text-black">
@@ -267,18 +357,18 @@ export function App() {
             </h1>
 
             <p className="text-sm sm:text-base font-medium text-stone-700 leading-relaxed font-sans">
-              Menghilangkan rekomendasi generik ala bot. Sistem ini mengekstrak data cuaca presisi dari{' '}
-              <b className="underline decoration-2">Open-Meteo</b> dan memetakan ruang terbuka & indoor ramah hujan via{' '}
-              <b className="underline decoration-2">OpenStreetMap</b> secara real-time.
+              Bukan data fiktif atau template AI generik. Sistem mengekstrak prakiraan cuaca jam-jaman dari{' '}
+              <b className="underline decoration-2">Open-Meteo</b> dan memadukan tempat wisata terverifikasi di{' '}
+              <b className="underline decoration-2">Google Maps</b> lengkap dengan jam buka & tiket masuk resmi.
             </p>
 
-            {/* Neubrutalist City Search Box */}
+            {/* Search Input */}
             <form onSubmit={handleSearchSubmit} className="pt-2 flex flex-col sm:flex-row gap-2 max-w-xl">
               <div className="relative flex-1">
                 <Search className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-black" />
                 <input
                   type="text"
-                  placeholder="Ketik nama kota... (misal: Bandung, Malang, Yogyakarta)"
+                  placeholder="Ketik nama kota... (misal: Bandung, Jakarta, Yogyakarta)"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-11 pr-4 py-3 bg-white border-[3px] border-black rounded-xl font-mono text-sm shadow-[4px_4px_0px_0px_#000] focus:outline-none focus:bg-[#FFE600]/15 placeholder:text-stone-500 font-bold"
@@ -293,9 +383,9 @@ export function App() {
               </button>
             </form>
 
-            {/* Popular City Quick Chips */}
+            {/* Quick City Chips */}
             <div className="pt-2 flex flex-wrap items-center gap-2">
-              <span className="font-mono text-xs font-black uppercase text-stone-600">Kota Cepat:</span>
+              <span className="font-mono text-xs font-black uppercase text-stone-600">Kota Pilihan:</span>
               {POPULAR_CITIES.map((c) => {
                 const isSelected = selectedCity.name === c.name;
                 return (
@@ -321,7 +411,7 @@ export function App() {
           <div className="py-20 text-center space-y-4 bg-white border-[3px] border-black rounded-2xl shadow-[6px_6px_0px_0px_#000]">
             <div className="w-12 h-12 border-4 border-black border-t-[#FFE600] rounded-full animate-spin mx-auto"></div>
             <p className="font-mono font-black text-sm uppercase text-black">
-              Sinkronisasi Open-Meteo & OpenStreetMap untuk {selectedCity.name}...
+              Mengambil prakiraan cuaca Open-Meteo & Landmark Google Maps untuk {selectedCity.name}...
             </p>
           </div>
         )}
@@ -458,12 +548,12 @@ export function App() {
                 </div>
               </div>
 
-              {/* Weather Copilot Strategy Card */}
+              {/* Weather Strategy Card */}
               <div className="bg-[#FFE600] border-[3px] border-black rounded-2xl p-5 shadow-[5px_5px_0px_0px_#000] flex flex-col justify-between">
                 <div>
                   <div className="flex items-center gap-1.5 font-mono font-black text-xs uppercase bg-black text-[#FFE600] px-2 py-1 rounded inline-block">
                     <ShieldCheck className="w-3.5 h-3.5 inline mr-1" />
-                    ANALISIS KEPUTUSAN
+                    ANALISIS CUACA & TEMPAT
                   </div>
                   <h4 className="font-mono font-black text-lg text-black uppercase mt-2">
                     Strategi Liburan di {data.city.name}
@@ -474,15 +564,15 @@ export function App() {
                 </div>
 
                 <div className="pt-4 mt-4 border-t-2 border-black flex items-center justify-between font-mono text-xs font-black">
-                  <span>API: Open-Meteo v1</span>
+                  <span>API: Open-Meteo & Google Maps</span>
                   <span className="bg-white border-2 border-black px-2 py-0.5 rounded shadow-[2px_2px_0px_0px_#000]">
-                    {filteredPlaces.length} Tempat Terdaftar
+                    {filteredPlaces.length} Tempat Terverifikasi
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Filter Chips & Tabs */}
+            {/* Filter Tabs */}
             <div className="flex flex-wrap items-center justify-between gap-3 border-b-[3px] border-black pb-4">
               <div className="flex flex-wrap items-center gap-2">
                 <button
@@ -518,7 +608,14 @@ export function App() {
                   Indoor Safe (Anti Hujan)
                 </button>
                 <button
-                  onClick={() => setActiveFilter('WISHLIST')}
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      setAuthModalMode('login');
+                      setIsAuthModalOpen(true);
+                      return;
+                    }
+                    setActiveFilter('WISHLIST');
+                  }}
                   className={`px-4 py-2 border-2 border-black rounded-lg font-mono font-black text-xs uppercase transition-all flex items-center gap-1.5 ${
                     activeFilter === 'WISHLIST'
                       ? 'bg-[#FF6B6B] text-white shadow-[3px_3px_0px_0px_#000] translate-x-[-1px] translate-y-[-1px]'
@@ -531,7 +628,7 @@ export function App() {
               </div>
 
               <span className="font-mono text-xs font-bold text-stone-600">
-                Klik kartu tempat untuk fokus di peta
+                Pilih tempat untuk melihat di Google Maps
               </span>
             </div>
 
@@ -556,7 +653,7 @@ export function App() {
                       }`}
                     >
                       {/* Image Thumbnail */}
-                      <div className="relative w-full sm:w-40 h-40 rounded-lg overflow-hidden border-2 border-black shrink-0 bg-stone-100">
+                      <div className="relative w-full sm:w-44 h-44 rounded-lg overflow-hidden border-2 border-black shrink-0 bg-stone-100">
                         <img
                           src={place.imageUrl}
                           alt={place.name}
@@ -589,6 +686,11 @@ export function App() {
                             {place.category}
                           </span>
 
+                          <div className="text-[11px] font-mono text-stone-500 flex items-center gap-1 mt-1">
+                            <Clock className="w-3 h-3 text-stone-700" />
+                            <span>{place.operationalHours || 'Buka Setiap Weekend'}</span>
+                          </div>
+
                           <p className="text-xs text-stone-800 mt-1 line-clamp-2 leading-relaxed font-sans font-medium">
                             {place.description}
                           </p>
@@ -606,7 +708,7 @@ export function App() {
                         <div className="pt-2 border-t-2 border-stone-200 flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
                           <div className="flex items-center gap-2 text-black font-bold">
                             <span className="flex items-center gap-1">
-                              <MapPin className="w-3.5 h-3.5" />
+                              <MapPin className="w-3.5 h-3.5 text-emerald-600" />
                               {place.distanceKm} KM
                             </span>
                             <span className="bg-stone-100 border border-black px-1.5 py-0.5 text-[10px]">
@@ -614,12 +716,33 @@ export function App() {
                             </span>
                           </div>
 
-                          {/* Action Buttons: Wishlist, Review, Maps */}
-                          <div className="flex items-center gap-2">
+                          {/* Action Buttons: Preview Detail, Wishlist, Review, Maps */}
+                          <div className="flex items-center gap-1.5">
+                            {/* Preview Google Maps Detail Modal */}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDetailPlace(place);
+                              }}
+                              title="Tampilan Peta & Detail Lengkap Google Maps"
+                              className="px-2 py-1 bg-[#FFE600] hover:bg-yellow-300 border-2 border-black rounded text-[11px] font-black uppercase shadow-[2px_2px_0px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] flex items-center gap-1 text-black"
+                            >
+                              <Eye className="w-3 h-3" />
+                              <span>Peta & Detail</span>
+                            </button>
+
                             {/* Wishlist Button */}
                             <button
+                              type="button"
                               onClick={(e) => handleWishlistClick(place.id, e)}
-                              title={wishlisted ? 'Hapus dari Agenda' : 'Simpan ke Agenda Saya'}
+                              title={
+                                !isAuthenticated
+                                  ? 'Masuk untuk simpan ke Agenda'
+                                  : wishlisted
+                                  ? 'Hapus dari Agenda'
+                                  : 'Simpan ke Agenda Saya'
+                              }
                               className={`p-1.5 rounded border-2 border-black font-bold text-xs uppercase shadow-[2px_2px_0px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] flex items-center gap-1 ${
                                 wishlisted ? 'bg-[#FF6B6B] text-white' : 'bg-white hover:bg-stone-100'
                               }`}
@@ -629,8 +752,9 @@ export function App() {
 
                             {/* Review Button */}
                             <button
+                              type="button"
                               onClick={(e) => handleReviewClick(place, e)}
-                              title="Tulis Ulasan Tempat"
+                              title={!isAuthenticated ? 'Masuk untuk memberi ulasan' : 'Tulis Ulasan Tempat'}
                               className="px-2 py-1 bg-white hover:bg-stone-100 border-2 border-black rounded text-[11px] font-bold uppercase shadow-[2px_2px_0px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] flex items-center gap-1"
                             >
                               <MessageSquare className="w-3 h-3" />
@@ -639,13 +763,13 @@ export function App() {
 
                             {/* Google Maps External Route */}
                             <a
-                              href={`https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}`}
+                              href={place.googleMapsUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name + ' ' + (place.address || ''))}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={(e) => e.stopPropagation()}
-                              className="px-2.5 py-1 bg-[#A3E635] hover:bg-lime-300 border-2 border-black rounded text-[11px] font-black uppercase shadow-[2px_2px_0px_0px_#000] flex items-center gap-1"
+                              className="px-2 py-1 bg-[#A3E635] hover:bg-lime-300 border-2 border-black rounded text-[11px] font-black uppercase shadow-[2px_2px_0px_0px_#000] flex items-center gap-1"
                             >
-                              RUTE <ExternalLink className="w-3 h-3" />
+                              Maps <ExternalLink className="w-3 h-3" />
                             </a>
                           </div>
                         </div>
@@ -664,7 +788,7 @@ export function App() {
               </div>
 
               {/* Sticky Map Component & Active Venue Card (Right) */}
-              <div className="lg:col-span-5 sticky top-22 space-y-4">
+              <div className="lg:col-span-5 sticky top-24 space-y-4">
                 <MapComponent
                   city={selectedCity}
                   places={filteredPlaces}
@@ -692,36 +816,39 @@ export function App() {
                       {selectedPlace.address || selectedPlace.description}
                     </p>
 
-                    {/* Reviews List Snippet */}
-                    {selectedPlace.reviews && selectedPlace.reviews.length > 0 && (
-                      <div className="bg-stone-50 border-2 border-black p-3 rounded-lg space-y-2">
-                        <span className="font-mono font-black text-[11px] uppercase text-stone-800 flex items-center gap-1">
-                          <Star className="w-3 h-3 fill-current text-amber-500" />
-                          Ulasan Komunitas:
+                    {/* Operational & Ticket Badges */}
+                    <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
+                      <div className="bg-stone-100 border border-black p-1.5 rounded">
+                        <span className="font-bold block text-stone-500 uppercase">Jam Operasional:</span>
+                        <span className="font-black text-black">
+                          {selectedPlace.operationalHours || 'Setiap Weekend'}
                         </span>
-                        {selectedPlace.reviews.slice(0, 2).map((rev) => (
-                          <div key={rev.id} className="text-xs border-b border-stone-200 pb-1.5 last:border-none last:pb-0">
-                            <div className="flex items-center justify-between font-mono text-[10px] text-stone-500">
-                              <b>{rev.authorName}</b>
-                              <span>{rev.createdAt}</span>
-                            </div>
-                            <p className="text-[11px] font-sans text-stone-700 mt-0.5">
-                              "{rev.comment}"
-                            </p>
-                          </div>
-                        ))}
                       </div>
-                    )}
+                      <div className="bg-stone-100 border border-black p-1.5 rounded">
+                        <span className="font-bold block text-stone-500 uppercase">Estimasi Tiket:</span>
+                        <span className="font-black text-black">
+                          {selectedPlace.ticketPrice || 'Standar'}
+                        </span>
+                      </div>
+                    </div>
 
                     <div className="pt-2 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setDetailPlace(selectedPlace)}
+                        className="flex-1 py-2.5 px-3 rounded-lg bg-[#FFE600] hover:bg-yellow-300 text-black font-mono font-black text-xs uppercase flex items-center justify-center gap-1.5 border-2 border-black shadow-[3px_3px_0px_0px_#000]"
+                      >
+                        <Eye className="w-4 h-4" />
+                        PREVIEW GOOGLE MAPS
+                      </button>
                       <a
-                        href={`https://www.google.com/maps/dir/?api=1&destination=${selectedPlace.lat},${selectedPlace.lng}`}
+                        href={selectedPlace.googleMapsUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedPlace.name + ' ' + (selectedPlace.address || ''))}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex-1 py-2.5 px-3 rounded-lg bg-black hover:bg-stone-800 text-[#FFE600] font-mono font-black text-xs uppercase flex items-center justify-center gap-1.5 border-2 border-black shadow-[3px_3px_0px_0px_#FFE600]"
+                        className="flex-1 py-2.5 px-3 rounded-lg bg-black hover:bg-stone-800 text-white font-mono font-black text-xs uppercase flex items-center justify-center gap-1.5 border-2 border-black shadow-[3px_3px_0px_0px_#000]"
                       >
-                        <Navigation className="w-4 h-4" />
-                        BUKA GOOGLE MAPS
+                        <Navigation className="w-4 h-4 text-[#FFE600]" />
+                        BUKA MAPS
                       </a>
                     </div>
                   </div>
@@ -732,57 +859,22 @@ export function App() {
         )}
       </main>
 
-      {/* 4. Guest Restricted Prompt Modal (RBAC Demonstration) */}
-      {guestPromptModal && (
-        <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-[#FFFDF5] border-[4px] border-black shadow-[8px_8px_0px_0px_#000] w-full max-w-md p-6 rounded-xl space-y-4">
-            <div className="flex items-start justify-between">
-              <div className="bg-[#FF6B6B] border-2 border-black p-2 rounded shadow-[2px_2px_0px_0px_#000]">
-                <ShieldAlert className="w-6 h-6 text-black" />
-              </div>
-              <button
-                onClick={() => setGuestPromptModal(false)}
-                className="font-mono font-black text-sm border-2 border-black px-2 py-0.5 bg-white shadow-[2px_2px_0px_0px_#000]"
-              >
-                TUTUP
-              </button>
-            </div>
+      {/* 3. Modals */}
+      {/* Strict Authentication Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        initialMode={authModalMode}
+      />
 
-            <div className="space-y-2">
-              <h3 className="font-mono font-black text-xl uppercase text-black">
-                AKSES TERBATAS: ROLE GUEST
-              </h3>
-              <p className="text-xs text-stone-700 leading-relaxed font-sans font-medium">
-                Fitur <b>Simpan Wishlist</b> dan <b>Memberi Ulasan</b> hanya dapat digunakan oleh pengguna dengan role <b>User Terdaftar</b>, <b>Merchant</b>, atau <b>Admin</b>.
-              </p>
-            </div>
+      {/* Place Detail & Google Maps Embed Modal */}
+      <PlaceDetailModal
+        place={detailPlace}
+        isOpen={!!detailPlace}
+        onClose={() => setDetailPlace(null)}
+      />
 
-            <div className="bg-[#FFE600]/30 border-2 border-black p-3 rounded font-mono text-xs text-black">
-              💡 <b>Coba Simulasi RBAC:</b> Anda dapat langsung beralih ke akun <b>USER (Rian Pratama)</b> dengan 1-klik di bawah ini!
-            </div>
-
-            <div className="pt-2 flex items-center justify-end gap-2">
-              <button
-                onClick={() => setGuestPromptModal(false)}
-                className="px-4 py-2 border-2 border-black bg-white rounded font-mono font-bold text-xs uppercase"
-              >
-                Nanti Saja
-              </button>
-              <button
-                onClick={() => {
-                  switchRole('user');
-                  setGuestPromptModal(false);
-                }}
-                className="px-5 py-2 border-[3px] border-black bg-[#38BDF8] rounded font-mono font-black text-xs uppercase shadow-[3px_3px_0px_0px_#000] active:translate-x-[1px] active:translate-y-[1px]"
-              >
-                Ganti ke Role USER
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 5. Modals: Merchant & Admin & Review */}
+      {/* Merchant Venue Registration Modal */}
       <MerchantModal
         city={selectedCity}
         isOpen={isMerchantModalOpen}
@@ -792,6 +884,7 @@ export function App() {
         }}
       />
 
+      {/* Admin Curator Desk Modal */}
       <AdminDeskModal
         isOpen={isAdminModalOpen}
         onClose={() => setIsAdminModalOpen(false)}
@@ -800,6 +893,7 @@ export function App() {
         }}
       />
 
+      {/* Community Review Modal */}
       <ReviewModal
         place={reviewPlace}
         isOpen={!!reviewPlace}
@@ -817,19 +911,19 @@ export function App() {
               WEEKENDLY &bull; KALAPEKAN
             </span>
             <p className="text-stone-400">
-              Platform mashup cerdas berbasis open-source data dari kurasi public-apis/public-apis.
+              Integrasi prakiraan cuaca Open-Meteo & Landmark Google Maps terverifikasi dengan RBAC ketat.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-3">
             <span className="bg-white/10 px-2.5 py-1 rounded border border-stone-700 text-[#A3E635]">
-              WEATHER: Open-Meteo
+              WEATHER: Open-Meteo API
             </span>
             <span className="bg-white/10 px-2.5 py-1 rounded border border-stone-700 text-[#38BDF8]">
-              MAPS: OpenStreetMap
+              MAPS: Google Maps Verified
             </span>
             <span className="bg-white/10 px-2.5 py-1 rounded border border-stone-700 text-[#FFE600]">
-              RBAC: 4 Roles Active
+              AUTH: Strict RBAC System
             </span>
           </div>
         </div>

@@ -6,6 +6,7 @@ export interface AuthUser {
   email: string;
   role: UserRole;
   badgeLabel: string;
+  avatar?: string;
 }
 
 export interface CityLocation {
@@ -56,6 +57,12 @@ export interface PlacePOI {
   rating?: number;
   address?: string;
   imageUrl?: string;
+  // Google Maps Verified Integration Fields
+  googleMapsUrl?: string;
+  googleMapsEmbedUrl?: string;
+  operationalHours?: string;
+  ticketPrice?: string;
+  gmapsTotalReviews?: number;
   // RBAC & Merchant Fields
   status?: 'APPROVED' | 'PENDING' | 'REJECTED';
   promoText?: string;
