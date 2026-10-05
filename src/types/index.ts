@@ -1,3 +1,13 @@
+export type UserRole = 'guest' | 'user' | 'merchant' | 'admin';
+
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  badgeLabel: string;
+}
+
 export interface CityLocation {
   name: string;
   displayName: string;
@@ -23,6 +33,16 @@ export interface WeekendWeather {
   summary: string;
 }
 
+export interface PlaceReview {
+  id: string;
+  placeId: string;
+  authorName: string;
+  authorRole: UserRole;
+  rating: number;
+  comment: string;
+  createdAt: string;
+}
+
 export interface PlacePOI {
   id: string;
   name: string;
@@ -36,6 +56,12 @@ export interface PlacePOI {
   rating?: number;
   address?: string;
   imageUrl?: string;
+  // RBAC & Merchant Fields
+  status?: 'APPROVED' | 'PENDING' | 'REJECTED';
+  promoText?: string;
+  submittedBy?: string;
+  submittedByName?: string;
+  reviews?: PlaceReview[];
 }
 
 export interface SmartOutingResult {
