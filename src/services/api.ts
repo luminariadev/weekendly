@@ -571,6 +571,33 @@ export function updateVenueStatus(venueId: string, status: 'APPROVED' | 'REJECTE
   saveStoredVenues(updated);
 }
 
+export function getVenuesByMerchant(merchantId: string): PlacePOI[] {
+  const venues = getStoredVenues();
+  return venues.filter((v) => v.submittedBy === merchantId);
+}
+
+export function updateVenuePromo(venueId: string, promoText: string): void {
+  const venues = getStoredVenues();
+  const updated = venues.map((v) => (v.id === venueId ? { ...v, promoText } : v));
+  saveStoredVenues(updated);
+}
+
+export function deleteVenue(venueId: string): void {
+  const venues = getStoredVenues();
+  const filtered = venues.filter((v) => v.id !== venueId);
+  saveStoredVenues(filtered);
+}
+
+export function getAllCuratedPlacesList(): PlacePOI[] {
+  const all: PlacePOI[] = [];
+  Object.values(CURATED_PLACES_DATABASE).forEach((list) => {
+    all.push(...list);
+  });
+  const custom = getStoredVenues().filter((v) => v.status === 'APPROVED');
+  return [...all, ...custom];
+}
+
+
 // Reviews Storage
 export function getStoredReviews(): Record<string, PlaceReview[]> {
   try {
