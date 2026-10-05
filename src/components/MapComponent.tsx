@@ -50,7 +50,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
     mapInstanceRef.current.setView([city.lat, city.lng], 12);
   }, [city]);
 
-  // Update markers
+  // Update markers with Neubrutalist style
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
@@ -61,44 +61,49 @@ export const MapComponent: React.FC<MapComponentProps> = ({
 
     places.forEach((place) => {
       const isIndoor = place.type === 'INDOOR';
-      const pinColor = isIndoor ? '#8b5cf6' : '#10b981'; // Purple for Indoor, Emerald for Outdoor
+      // Neubrutalism colors: Mint for Outdoor, Purple for Indoor, Yellow for Selected
+      const pinColor = isIndoor ? '#C084FC' : '#A3E635';
       const isSelected = selectedPlace?.id === place.id;
 
       const customIcon = L.divIcon({
         className: 'custom-div-icon',
         html: `
           <div style="
-            background-color: ${isSelected ? '#f59e0b' : pinColor};
-            width: ${isSelected ? '36px' : '28px'};
-            height: ${isSelected ? '36px' : '28px'};
-            border-radius: 50%;
-            border: 3px solid white;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            background-color: ${isSelected ? '#FFE600' : pinColor};
+            width: ${isSelected ? '40px' : '32px'};
+            height: ${isSelected ? '40px' : '32px'};
+            border-radius: 8px;
+            border: 3px solid #000;
+            box-shadow: ${isSelected ? '4px 4px 0px #000' : '2px 2px 0px #000'};
             display: flex;
             align-items: center;
             justify-content: center;
-            color: white;
-            font-size: ${isSelected ? '16px' : '12px'};
-            font-weight: bold;
-            transition: all 0.2s ease;
+            color: #000;
+            font-size: ${isSelected ? '18px' : '14px'};
+            font-weight: 900;
+            cursor: pointer;
+            transition: transform 0.15s ease;
           ">
             ${isIndoor ? '🏛️' : '🌲'}
           </div>
         `,
-        iconSize: isSelected ? [36, 36] : [28, 28],
-        iconAnchor: isSelected ? [18, 18] : [14, 14],
+        iconSize: isSelected ? [40, 40] : [32, 32],
+        iconAnchor: isSelected ? [20, 20] : [16, 16],
       });
 
       const marker = L.marker([place.lat, place.lng], { icon: customIcon }).addTo(map);
 
       marker.bindPopup(`
-        <div style="font-family: sans-serif; min-width: 180px;">
-          <b style="font-size: 14px; color: #1e293b;">${place.name}</b>
-          <div style="font-size: 11px; color: #64748b; margin-top: 2px;">${place.category}</div>
-          <div style="margin-top: 6px; display: inline-block; font-size: 10px; padding: 2px 6px; border-radius: 4px; background: ${isIndoor ? '#ede9fe' : '#d1fae5'}; color: ${isIndoor ? '#6b21a8' : '#065f46'}; font-weight: 600;">
+        <div style="font-family: monospace, sans-serif; min-width: 200px; padding: 4px;">
+          <div style="display: inline-block; background: #000; color: #FFE600; font-size: 10px; font-weight: 900; padding: 2px 6px; text-transform: uppercase; margin-bottom: 4px;">
+            ${place.type} SPOT
+          </div>
+          <b style="font-size: 14px; color: #000; display: block;">${place.name}</b>
+          <div style="font-size: 11px; color: #475569; margin-top: 2px;">${place.category}</div>
+          <div style="margin-top: 6px; display: inline-block; font-size: 11px; padding: 2px 6px; border: 2px solid #000; background: ${isIndoor ? '#C084FC' : '#A3E635'}; color: #000; font-weight: 800;">
             ${place.weatherFitBadge}
           </div>
-          <div style="font-size: 12px; margin-top: 6px; color: #334155;">Jarak: ${place.distanceKm ?? 0} km</div>
+          <div style="font-size: 12px; margin-top: 6px; font-weight: 700; color: #000;">Jarak: ${place.distanceKm ?? 0} km</div>
         </div>
       `);
 
@@ -124,16 +129,16 @@ export const MapComponent: React.FC<MapComponentProps> = ({
   }, [selectedPlace]);
 
   return (
-    <div className="relative w-full h-[360px] md:h-[480px] rounded-2xl overflow-hidden shadow-lg border border-slate-200">
+    <div className="relative w-full h-[360px] md:h-[480px] rounded-xl overflow-hidden border-[3px] border-black shadow-[6px_6px_0px_0px_#000] bg-white">
       <div ref={mapContainerRef} className="w-full h-full" />
-      <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-lg text-xs font-medium text-slate-700 shadow-md border border-slate-100 z-[1000] flex items-center gap-3">
+      <div className="absolute top-3 right-3 bg-white px-3 py-1.5 rounded-lg border-2 border-black shadow-[3px_3px_0px_0px_#000] z-[1000] flex items-center gap-3 font-mono font-bold text-xs">
         <span className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
-          Outdoor Spot
+          <span className="w-3 h-3 border border-black bg-[#A3E635] inline-block"></span>
+          OUTDOOR
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-purple-500 inline-block"></span>
-          Indoor Spot
+          <span className="w-3 h-3 border border-black bg-[#C084FC] inline-block"></span>
+          INDOOR
         </span>
       </div>
     </div>
