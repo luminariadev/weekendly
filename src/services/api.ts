@@ -1,4 +1,4 @@
-import type { CityLocation, DayForecast, WeekendWeather, PlacePOI, SmartOutingResult } from '../types';
+import type { CityLocation, DayForecast, WeekendWeather, PlacePOI, SmartOutingResult, PlaceReview } from '../types';
 
 // Predefined popular cities for quick selection
 export const POPULAR_CITIES: CityLocation[] = [
@@ -404,7 +404,135 @@ export async function fetchLiveOsmPois(lat: number, lng: number): Promise<PlaceP
   }
 }
 
-// 5. Core Recommendation Engine: Orchestrate City + Weather + Places
+const STORAGE_VENUES_KEY = 'weekendly_merchant_venues_v1';
+const STORAGE_REVIEWS_KEY = 'weekendly_place_reviews_v1';
+
+// Seed and get custom venues submitted by merchants
+export function getStoredVenues(): PlacePOI[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_VENUES_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {
+    console.error(e);
+  }
+  const initial: PlacePOI[] = [
+    {
+      id: 'custom-mch-1',
+      name: 'Senja Loft & Boardgames Coffee',
+      category: 'Cafe & Boardgames',
+      type: 'INDOOR',
+      description: 'Ruang estetik ber-AC dengan 100+ koleksi boardgame, manual brew coffee, dan seating indoor nyaman untuk akhir pekan santai.',
+      lat: -6.9038,
+      lng: 107.6186,
+      weatherFitBadge: 'Aman Saat Hujan',
+      rating: 4.9,
+      address: 'Jl. Riau No. 42, Citarum, Bandung',
+      imageUrl: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=600&q=80',
+      status: 'PENDING',
+      promoText: '🎉 Diskon 25% Boardgame Pass saat Hujan di Hari Sabtu/Minggu!',
+      submittedBy: 'mch-01',
+      submittedByName: 'Kopi Senja & Space Owner',
+    },
+  ];
+  try {
+    localStorage.setItem(STORAGE_VENUES_KEY, JSON.stringify(initial));
+  } catch {}
+  return initial;
+}
+
+export function saveStoredVenues(venues: PlacePOI[]): void {
+  try {
+    localStorage.setItem(STORAGE_VENUES_KEY, JSON.stringify(venues));
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+export function submitNewVenue(
+  venueData: Omit<PlacePOI, 'id' | 'status'>,
+  merchantId: string,
+  merchantName: string
+): PlacePOI {
+  const venues = getStoredVenues();
+  const newVenue: PlacePOI = {
+    ...venueData,
+    id: `mch-${Date.now()}`,
+    status: 'PENDING',
+    submittedBy: merchantId,
+    submittedByName: merchantName,
+    rating: 5.0,
+    weatherFitBadge: venueData.type === 'INDOOR' ? 'Aman Hujan (Indoor)' : 'Cocok Cerah (Outdoor)',
+  };
+  venues.unshift(newVenue);
+  saveStoredVenues(venues);
+  return newVenue;
+}
+
+export function updateVenueStatus(venueId: string, status: 'APPROVED' | 'REJECTED'): void {
+  const venues = getStoredVenues();
+  const updated = venues.map((v) => (v.id === venueId ? { ...v, status } : v));
+  saveStoredVenues(updated);
+}
+
+// Reviews Storage
+export function getStoredReviews(): Record<string, PlaceReview[]> {
+  try {
+    const raw = localStorage.getItem(STORAGE_REVIEWS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {
+    console.error(e);
+  }
+  const initial: Record<string, PlaceReview[]> = {
+    'bdg-1': [
+      {
+        id: 'rev-1',
+        placeId: 'bdg-1',
+        authorName: 'Rian Pratama',
+        authorRole: 'user',
+        rating: 5,
+        comment: 'Tahura pas pagi hari sejuk banget kalau cerah! Jalurnya nyaman buat jalan kaki santai.',
+        createdAt: 'Sabtu lalu, 09:30',
+      },
+    ],
+    'bdg-2': [
+      {
+        id: 'rev-2',
+        placeId: 'bdg-2',
+        authorName: 'Maya Lestari',
+        authorRole: 'user',
+        rating: 5,
+        comment: 'Selasar Sunaryo jadi penyelamat waktu Bandung hujan deras minggu lalu. Kopi Selasar-nya mantap.',
+        createdAt: '3 hari yang lalu',
+      },
+    ],
+  };
+  try {
+    localStorage.setItem(STORAGE_REVIEWS_KEY, JSON.stringify(initial));
+  } catch {}
+  return initial;
+}
+
+export function addReviewToPlace(
+  placeId: string,
+  review: Omit<PlaceReview, 'id' | 'createdAt'>
+): PlaceReview {
+  const allReviews = getStoredReviews();
+  const newReview: PlaceReview = {
+    ...review,
+    id: `rev-${Date.now()}`,
+    createdAt: 'Baru saja',
+  };
+  const list = allReviews[placeId] || [];
+  allReviews[placeId] = [newReview, ...list];
+  try {
+    localStorage.setItem(STORAGE_REVIEWS_KEY, JSON.stringify(allReviews));
+  } catch (e) {
+    console.error(e);
+  }
+  return newReview;
+}
+
+// 5. Core Recommendation Engine: Orchestrate City + Weather + Places + Merchant Data
 export async function getSmartOutingRecommendations(city: CityLocation): Promise<SmartOutingResult> {
   // Fetch weather forecast in parallel
   const weather = await fetchWeekendWeather(city.lat, city.lng);
@@ -434,12 +562,24 @@ export async function getSmartOutingRecommendations(city: CityLocation): Promise
     }
   }
 
-  // Calculate distance from city center for each place
+  // Include Approved Merchant Venues within ~30km of current city
+  const customVenues = getStoredVenues().filter((v) => v.status === 'APPROVED');
+  customVenues.forEach((customVenue) => {
+    const dist = calculateDistanceKm(city.lat, city.lng, customVenue.lat, customVenue.lng);
+    if (dist <= 35 && !rawPlaces.some((p) => p.id === customVenue.id)) {
+      rawPlaces.unshift(customVenue);
+    }
+  });
+
+  // Attach reviews and calculate distance
+  const allReviews = getStoredReviews();
   const enrichedPlaces = rawPlaces.map((place) => {
     const dist = calculateDistanceKm(city.lat, city.lng, place.lat, place.lng);
     return {
       ...place,
       distanceKm: dist,
+      status: place.status || 'APPROVED',
+      reviews: allReviews[place.id] || [],
     };
   });
 
@@ -462,3 +602,4 @@ export async function getSmartOutingRecommendations(city: CityLocation): Promise
     places: enrichedPlaces,
   };
 }
+
