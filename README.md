@@ -1,31 +1,62 @@
 # ⚡ WEEKENDLY [Anti AI-Slop] &bull; KalaPekan
 
-> **Aplikasi Rekomendasi Liburan Akhir Pekan Cerdas Berbasis Prakiraan Cuaca Real-Time, Open-Data POI, Desain Neubrutalisme, dan Sistem RBAC (Role-Based Access Control).**
+> **Aplikasi Rekomendasi Liburan Akhir Pekan Cerdas Berbasis Prakiraan Cuaca Real-Time, Verified POI Google Maps, Desain Neubrutalisme, dan Arsitektur Multi-Role RBAC.**
 
 Proyek ini dibangun berdasarkan integrasi multi-API publik (*API Mashup*) yang dikurasi dari repositori [public-apis/public-apis](https://github.com/public-apis/public-apis).
 
 ---
 
-## 🎨 Karakter Desain: Neubrutalism (Anti AI-Slop)
+## 🎨 Filosofi Desain: Neubrutalism (Anti AI-Slop)
 
-Weekendly sengaja menolak gaya *"AI-slop"* generik (gradien ungu lembut, glassmorphism buram, rounded-3xl seragam) dan mengusung filosofi **Neubrutalisme**:
+Weekendly sengaja menolak gaya *"AI-slop"* generik (gradien ungu pastel kabur, glassmorphism buram, borderless card seragam) dan mengusung estetika **Neubrutalisme**:
 * **High-Contrast Bold Borders:** Border hitam tegas (`border-[3px] border-black` dan `border-[4px] border-black`).
-* **Tactile Hard Drop Shadows:** Bayangan solid tanpa blur (`shadow-[4px_4px_0px_#000]` dan `shadow-[8px_8px_0px_#000]`) yang memberikan kesan tombol fisik nyata saat ditekan.
-* **Punchy Color Accents:** Canary Yellow (`#FFE600`), Electric Lime (`#A3E635`), Retro Sky (`#38BDF8`), Hot Coral (`#FF6B6B`), dan Lilac (`#C084FC`).
-* **Micro-Stickers & Monospace Labels:** Tipografi tebal bernuansa retro-modern dengan hierarki informasi yang sangat jelas.
+* **Tactile Hard Drop Shadows:** Bayangan solid tanpa blur (`shadow-[4px_4px_0px_#000]` dan `shadow-[8px_8px_0px_#000]`) yang memberikan sensasi fisik retro saat berinteraksi.
+* **Punchy Color Palette:** Canary Yellow (`#FFE600`), Electric Lime (`#A3E635`), Retro Sky (`#38BDF8`), Hot Coral (`#FF6B6B`), dan Neon Purple (`#C084FC`).
+* **Micro-Stickers & Monospace Typography:** Header tebal sans-serif dipadukan dengan aksen monospace (`font-mono`) untuk badge status dan koordinat.
 
 ---
 
-## 👥 Sistem Autentikasi & RBAC (Role-Based Access Control)
+## 🔐 Sistem Autentikasi & 4 Tampilan Berdasarkan Role (RBAC)
 
-Aplikasi dilengkapi dengan **RBAC Controller Bar** di bagian atas untuk berpindah antar 4 peran secara instan:
+Aplikasi menerapkan sistem autentikasi ketat (**Strict Neubrutalist Auth Modal**) di mana setiap pengguna harus masuk dengan akun kredensial yang valid. Setiap role memiliki tampilan dasbor khusus:
 
-| Peran (Role) | Hak Akses & Fitur Khusus |
-| :--- | :--- |
-| **1. Guest (Publik / Tanpa Login)** | - Mencari kota & cek cuaca akhir pekan Sabtu & Minggu.<br/>- Menjelajahi katalog tempat umum & rute Google Maps.<br/>- *Guarded:* Ditampilkan modal penjelasan saat mencoba simpan agenda atau review. |
-| **2. Registered User (Pengguna Terdaftar)** | - **Simpan Agenda Akhir Pekan:** Bookmark tempat ke Wishlist pribadi.<br/>- **Ulasan & Rating Komunitas:** Memberikan feedback dan tips cuaca pada setiap spot wisata.<br/>- Menerima ringkasan strategi liburan akhir pekan. |
-| **3. Merchant (Pemilik Usaha / Mitra)** | - **Portal Pendaftaran Spot:** Mengajukan tempat baru (kafe, galeri, arena rekreasi, wisata alam).<br/>- **Kelola Promo Weekend:** Menambahkan penawaran khusus akhir pekan (misal: *Diskon 25% Boardgame Pass saat Hujan*).<br/>- Status verifikasi transparan (`PENDING` / `APPROVED`). |
-| **4. Admin (Kurator Platform)** | - **Curator Moderation Desk:** Panel khusus untuk memverifikasi, menyetujui (*Approve*), atau menolak (*Reject*) tempat yang didaftarkan merchant.<br/>- Tempat yang disetujui langsung tampil di peta dan katalog publik secara otomatis.<br/>- Monitoring metrik ketersediaan API Open-Meteo & OpenStreetMap. |
+```mermaid
+graph TD
+    A[Pengunjung Web] -->|Belum Login| B[🌍 Explorer View]
+    A -->|Login Modal| C{Validasi Akun & Role}
+    C -->|Role: user| D[🎒 Traveler Dashboard]
+    C -->|Role: merchant| E[🏪 Merchant Hub]
+    C -->|Role: admin| F[🛡️ Curator Moderation Desk]
+```
+
+### 1. 🌍 Explorer View (Guest / Publik)
+* **Prakiraan Cuaca Real-Time:** Menampilkan kondisi cuaca Sabtu & Minggu (suhu, curah hujan, angin, index kenyamanan).
+* **Katalog Destinasi:** Filter berdasarkan kategori (Indoor/Outdoor/Kafe/Budaya) dan status operasional.
+* **Peta Interaktif:** Pin lokasi wisata dengan status buka/tutup dan preview rute.
+* *Guarded:* Tindakan simpan wishlist atau submit review akan memunculkan modal login.
+
+### 2. 🎒 Traveler Dashboard (Registered User)
+* **Agenda Akhir Pekan (Wishlist):** Daftar tempat tersimpan lengkap dengan perkiraan cuaca Sabtu & Minggu.
+* **Simulator Weekend Weather Alert:** Simulasi notifikasi otomatis setiap Jumat pukul 17:00 jika cuaca Sabtu diprediksi hujan lebat.
+* **Riwayat Ulasan Komunitas:** Catatan review dan rekomendasi tempat yang telah dikunjungi.
+
+### 3. 🏪 Merchant Hub (Pemilik Usaha / Mitra)
+* **Portal Pendaftaran Destinasi:** Mendaftarkan venue baru (alamat, jam operasional, link Google Maps, fasilitas).
+* **Manajemen Promo Weekend:** Menambahkan diskon khusus akhir pekan (misal: *Diskon 25% Boardgame Pass saat Hujan*).
+* **Status Kurasi Transparan:** Melacak status tempat apakah masih `PENDING` atau sudah `APPROVED`.
+
+### 4. 🛡️ Curator Moderation Desk (Platform Admin)
+* **Panel Kurasi & Moderasi:** Melakukan verifikasi, menyetujui (*Approve*), atau menolak (*Reject*) tempat yang didaftarkan merchant.
+* **Integrasi Otomatis:** Tempat yang disetujui langsung tampil di peta interaktif dan katalog publik.
+* **User Directory & API Monitor:** Memantau ketersediaan endpoint Open-Meteo dan OpenStreetMap secara real-time.
+
+---
+
+## 🗺️ Verified Google Maps & OpenStreetMap Integration
+
+Tidak ada data dummy atau halusinasi generik:
+* **Real Landmark Data:** Seluruh tempat (seperti *Museum Geologi, Tahura Djuanda, Selasar Sunaryo, Saung Udjo, Tebet Eco Park, Museum Nasional, MoJA Art, Prambanan*, dll) menggunakan alamat fisik, jam operasional nyata, dan koordinat akurat.
+* **Live Interactive Embeds:** Modal detail tempat dilengkapi iframe Google Maps live embed dan tombol langsung ke rute Google Maps.
 
 ---
 
@@ -43,11 +74,14 @@ Aplikasi dilengkapi dengan **RBAC Controller Bar** di bagian atas untuk berpinda
 ## 🚀 Cara Menjalankan
 
 ```bash
-# 1. Pindah ke direktori
+# 1. Pindah ke direktori proyek
 cd "D:\Rizkia\Project Software\weekendly"
 
-# 2. Jalankan development server
+# 2. Pasang dependensi (jika belum)
+npm install
+
+# 3. Jalankan development server
 npm run dev
 ```
 
-Buka URL lokal yang muncul (biasanya `http://localhost:5173`) di browser.
+Buka URL lokal yang muncul (biasanya `http://localhost:5173` atau `http://localhost:5175`) di browser favorit Anda.

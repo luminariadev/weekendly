@@ -1,7 +1,23 @@
 {
   "name": "weekendly",
+  "version": "1.0.0",
+  "description": "Weekendly (KalaPekan) - Anti-AI Slop Neubrutalist Smart Weekend Outing Recommender with Multi-Role RBAC & Real-Time Weather APIs",
+  "author": "luminariadev <rizkianuari83@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/luminariadev/weekendly.git"
+  },
+  "keywords": [
+    "neubrutalism",
+    "react",
+    "tailwind",
+    "weather-app",
+    "open-meteo",
+    "google-maps",
+    "public-apis",
+    "rbac"
+  ],
   "private": true,
-  "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
